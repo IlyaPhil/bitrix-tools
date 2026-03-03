@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Скачать файлы</title>
+  <script src="https://api.bitrix24.com/api/v1/"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Golos Text', -apple-system, sans-serif;
+      background: #f5f7fa;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+      max-width: 560px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a2540;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #8892a4;
+      margin-bottom: 20px;
+    }
+
+    /* File list */
+    #fileList {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+      min-height: 40px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8f9fc;
+      border: 1px solid #e8ecf2;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #2d3a52;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
+    .file-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .file-name {
+      flex: 1;
+      font-weight: 500;
+      color: #1a2540;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-ext {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #e8f0fe;
+      color: #3b6be8;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #3b6be8;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59, 107, 232, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #2d5dd6;
+      box-shadow: 0 4px 12px rgba(59, 107, 232, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #f0f3f9;
+      color: #3b6be8;
+      border: 1px solid #d0daed;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #e4ebf8;
+    }
+
+    /* Status */
+    #status {
+      margin-top: 16px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+    }
+
+    .status-loading {
+      background: #eef2ff;
+      color: #3b6be8;
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-success {
+      background: #e6faf4;
+      color: #0d9b6e;
+      display: block !important;
+    }
+
+    .status-error {
+      background: #fff0f0;
+      color: #d63031;
+      display: block !important;
+    }
+
+    .status-empty {
+      background: #fff9e6;
+      color: #b8860b;
+      display: block !important;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(59, 107, 232, 0.2);
+      border-top-color: #3b6be8;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Config note */
+    .config-note {
+      margin-top: 20px;
+      padding: 12px 14px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #92400e;
+      display: none;
+    }
+
+    code {
+      font-family: monospace;
+      background: rgba(0, 0, 0, 0.06);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h2>📎 Файлы из формы</h2>
+    <p class="subtitle" id="subtitleText">Загрузка...</p>
+
+    <div id="fileList"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnDownload" onclick="downloadAll()" disabled>
+        ⬇ Скачать все файлы
+      </button>
+      <button class="btn btn-secondary" id="btnRefresh" onclick="init()">
+        ↻ Обновить
+      </button>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="config-note" id="configNote">
+      ⚠️ Укажите имя UF-поля в переменной <code>UF_FIELD_NAME</code> в коде приложения.
+      Текущее значение: <code id="currentFieldName"></code>
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────
+    //  НАСТРОЙКА: укажите точное название вашего UF-поля
+    //  Например: 'UF_CRM_TOPIC' или 'UF_CRM_1234567890'
+    // ─────────────────────────────────────────────
+    const UF_FIELD_NAME = 'UF_CRM_VASHFAIL'; // ← замените на ваше поле
+
+    // ─────────────────────────────────────────────
+    let currentFiles = [];
+    let leadId = null;
+
+    function getFileIcon(ext) {
+      const icons = {
+        pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
+        png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️', webp: '🖼️',
+        zip: '📦', rar: '📦', '7z': '📦',
+        mp4: '🎬', mov: '🎬', avi: '🎬',
+        mp3: '🎵', wav: '🎵',
+      };
+      return icons[ext.toLowerCase()] || '📎';
+    }
+
+    function getExt(url) {
+      const clean = url.split('?')[0];
+      const parts = clean.split('.');
+      return parts.length > 1 ? parts.pop() : 'файл';
+    }
+
+    function getFileName(url) {
+      const clean = url.split('?')[0];
+      const name = clean.split('/').pop();
+      return decodeURIComponent(name) || 'file';
+    }
+
+    function showStatus(type, msg) {
+      const el = document.getElementById('status');
+      el.className = 'status-' + type;
+      if (type === 'loading') {
+        el.innerHTML = '<div class="spinner"></div>' + msg;
+      } else {
+        el.textContent = msg;
+      }
+      el.style.display = '';
+    }
+
+    function hideStatus() {
+      document.getElementById('status').style.display = 'none';
+    }
+
+    function renderFiles(urls) {
+      const list = document.getElementById('fileList');
+      list.innerHTML = '';
+      currentFiles = urls;
+
+      if (urls.length === 0) {
+        list.innerHTML = '<div style="color:#8892a4;font-size:13px;padding:8px 0">Файлы не найдены</div>';
+        document.getElementById('btnDownload').disabled = true;
+        return;
+      }
+
+      urls.forEach(url => {
+        const ext = getExt(url);
+        const name = getFileName(url);
+        const div = document.createElement('div');
+        div.className = 'file-item';
+        div.innerHTML = `
+      <span class="file-icon">${getFileIcon(ext)}</span>
+      <span class="file-name" title="${name}">${name}</span>
+      <span class="file-ext">${ext}</span>
+    `;
+        list.appendChild(div);
+      });
+
+      document.getElementById('btnDownload').disabled = false;
+    }
+
+    function parseUrls(raw) {
+      if (!raw) return [];
+      // Split by newlines, commas, spaces, or semicolons
+      return raw
+        .split(/[\n\r,;\s]+/)
+        .map(s => s.trim())
+        .filter(s => /^https?:\/\//i.test(s));
+    }
+
+    function init() {
+      // Check config
+      if (!UF_FIELD_NAME || UF_FIELD_NAME === 'UF_CRM_FILES') {
+        const note = document.getElementById('configNote');
+        note.style.display = 'block';
+        document.getElementById('currentFieldName').textContent = UF_FIELD_NAME;
+      }
+
+      showStatus('loading', 'Загружаем данные лида...');
+      document.getElementById('subtitleText').textContent = 'Загрузка...';
+      document.getElementById('fileList').innerHTML = '';
+      document.getElementById('btnDownload').disabled = true;
+
+      BX24.init(function () {
+        // Get current entity (lead) ID from placement
+        const placement = BX24.placement.info();
+        leadId = placement.options && placement.options.ID;
+
+        if (!leadId) {
+          // Try getting from URL params as fallback
+          const params = new URLSearchParams(window.location.search);
+          leadId = params.get('lead_id');
+        }
+
+        if (!leadId) {
+          document.getElementById('subtitleText').textContent = 'Ошибка';
+          showStatus('error', 'Не удалось определить ID лида. Убедитесь, что приложение открыто из карточки лида.');
+          return;
+        }
+
+        BX24.callMethod('crm.lead.get', {
+          id: leadId,
+          select: ['ID', 'TITLE', UF_FIELD_NAME]
+        }, function (result) {
+          if (result.error()) {
+            document.getElementById('subtitleText').textContent = 'Ошибка загрузки';
+            showStatus('error', 'Ошибка REST API: ' + result.error_description());
+            return;
+          }
+
+          const data = result.data();
+          const fieldValue = data[UF_FIELD_NAME] || '';
+          const title = data.TITLE || ('Лид #' + leadId);
+
+          document.getElementById('subtitleText').textContent = title;
+
+          const urls = parseUrls(fieldValue);
+
+          if (urls.length === 0) {
+            renderFiles([]);
+            showStatus('empty', `Поле ${UF_FIELD_NAME} пустое или не содержит URL-ссылок.`);
+            return;
+          }
+
+          hideStatus();
+          renderFiles(urls);
+        });
+      });
+    }
+
+    function downloadAll() {
+      if (currentFiles.length === 0) return;
+
+      const btn = document.getElementById('btnDownload');
+      btn.disabled = true;
+      showStatus('loading', `Запускаем скачивание ${currentFiles.length} файл(а)...`);
+
+      currentFiles.forEach((url, i) => {
+        setTimeout(() => {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = getFileName(url);
+          a.target = '_blank';
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          if (i === currentFiles.length - 1) {
+            setTimeout(() => {
+              btn.disabled = false;
+              showStatus('success', `✓ Запущено скачивание ${currentFiles.length} файл(а). Проверьте папку загрузок.`);
+            }, 500);
+          }
+        }, i * 800);
+      });
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+
+</html>
